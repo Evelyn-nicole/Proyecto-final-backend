@@ -1,26 +1,23 @@
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 class User(db.Model):
+    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
-    last_name =db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(30), nullable=False)
+    email = db.Column(db.String(30), nullable=False, unique=True)
     phone = db.Column(db.Integer, nullable=False)
-    password = db.Column(db.String(10), nullable=False) 
-    # favorite = db.relationship('Favorite', backref='user', cascade='all, delete', lazy=True)
-    # event = db.relationship('Event', backref='user', cascade='all, delete', lazy=True)
-    # comment = db.relationship('Comment', backref='user', cascade='all, delete', lazy=True)
-    # reservation = db.relationship('Reservation', backref='user', cascade='all, delete', lazy=True)
-
+    password = db.Column(db.String(150), nullable=False)
+    # availability = db.relationship('availabilitys', backref='user', cascade='all, delete', lazy=True)
+   
     def __repr__(self):
-        return "<User %r>" % self.id
+        return "<User %r>" % self.email
     
     def serialize(self):
         return {
             'id': self.id,
             'name':self.name,
-            'last_name':self.last_name,
             'email':self.email,
             'phone':self.phone,
             'password':self.password,
@@ -29,7 +26,54 @@ class User(db.Model):
     def serialize_just_username(self):
         return {
             'id':self.id,
-            'name':self.name,
+            'email':self.email,
+        }
+
+class Availability(db.Model):
+    __tablename__ = 'availability'
+    id = db.Column(db.Integer, primary_key=True)
+    user = db.Column(db.String(30), db.ForeignKey("user.name", ondelete='CASCADE'), primary_key=True)
+    date = db.Column(db.Integer, nullable=False)
+    # id_user = db.Column(db.String(30), db.ForeignKey("user.name", ondelete='CASCADE'), nullable=False)
+
+    def __repr__(self):
+        return "<Availability %r>" % self.id
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'user': self.user,
+            'date': self.date,
+        }
+
+    def serialize_just_availability(self):
+        return{
+            'id': self.id,
+            'user': self.user,
+            "date": self.date
+        }
+
+
+class Profile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    role = db.Column(db.String(15), nullable=False)
+    id_user = db.Column (db.String(30), db.ForeignKey("user.id", ondelete='CASCADE'), nullable=False)
+
+
+    def __repr__(self):
+        return "<Profile %r>" % self.id_user
+
+    def serialize(self):
+        return {
+        "id": self.id, 
+        "id_user": self.id_user, 
+        "role": self.role,                           
+        }
+
+    def serialize_just_profile(self):
+        return {
+        "id_profile": self.id,
+        "role": self.role,      
         }
         
 class Event(db.Model):
@@ -64,9 +108,10 @@ class Event(db.Model):
         
 class Favorite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user = db.Column(db.String(50), nullable=False)
+    user = db.Column(db.String(50), db.ForeignKey('user.name'), nullable=False)
     favorite_thematic = db.Column(db.String(300), nullable=False)
-    # user = db.relationship('User', backref='favorite', cascade='all, delete', lazy=True)
+    # user= db.relationship('User')
+   
 
     def __repr__(self):
         return "<Favorite %r>" % self.id
@@ -109,35 +154,6 @@ class Comment(db.Model):
             'comment': self.comment
         }
   
-        
-class Availability(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user = db.Column(db.String(30), primary_key=True)
-    date = db.Column(db.Integer, nullable=False)
-    morning = db.Column(db.Integer, nullable=False)
-    afternoon = db.Column(db.Integer, nullable=False)
-    evening = db.Column(db.Integer, nullable=False)
-    # event = db.relationship('Event', backref='availability', cascade='all, delete', lazy=True)
-
-    def __repr__(self):
-        return "<Availability %r>" % self.id
-
-    def serialize(self):
-        return {
-            'id': self.id,
-            'user': self.user,
-            'date': self.date,
-            "morning": self.morning,
-            "evening": self.evening,
-            "afternoon": self.afternoon
-        }
-
-    def serialize_just_availability(self):
-        return{
-            'id': self.id,
-            'user': self.user,
-            "date": self.date
-        }
         
 class Reservation(db.Model):
 
