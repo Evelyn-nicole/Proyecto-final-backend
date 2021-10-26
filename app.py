@@ -1,3 +1,5 @@
+import re
+from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Event, Favorite, Comment, Availability, Reservation
@@ -27,8 +29,11 @@ def home():
 @app.route('/user', methods=["GET"])
 def user():
     user = User.query.get(1)
-    return jsonify(user.serialize()),200
+    return jsonify({
+        "user":user.serialize()
+    }),200
 
+# CREAR NUEVO USUARIO
 @app.route('/newUser', methods=["POST", "GET"])
 def newUser():
     if request.method =="POST":
@@ -36,20 +41,31 @@ def newUser():
         name = request.json.get("name")
         password = request.json.get("password")
         phone = request.json.get("phone")
-      
+    
+    # campos vacios
     if name == "":
-        return jsonify("Debe informar su nombre."), 401
-    if email == "":
-        return jsonify("Debe informar su email."), 401
-    if password == "":
-        return jsonify("Debe informar su Contraseña."), 401
-    if phone == "":
-        return jsonify("Debe informar su Telefono."), 401
-        
-    user_exist = User.query.filter_by(email = email).first()
-    print(user_exist)
+        return jsonify({
+            "msg":"Debe informar su nombre"
+        }), 400
 
-    if user_exist != None:            
+    if email == "":
+        return jsonify({
+            "msg":"Debe informar su email"
+        }), 400
+
+    if password == "":
+        return jsonify({
+            "msg":"Debe informar su Contraseña"
+        }), 400
+
+    if phone == "":
+        return jsonify({
+            "msg":"Debe informar su Telefono"
+        }), 400
+
+    # verificar si el usuario existe 
+    user_exist = User.query.filter_by(email = email).first()
+    if user_exist != None:
         return jsonify("Usted ya existe como cliente."), 404
     else:
         user = User()
@@ -57,57 +73,20 @@ def newUser():
         user.name = name
         user.phone = phone
         user.password = bcrypt.generate_password_hash(password).decode('utf-8')
+        password_regex = '^.*(?=.{4,})(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).*$'
+
+        if re.search(password_regex, password):
+            password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+            user.password = password_hash
 
         db.session.add(user)
         db.session.commit()
-    
-    return jsonify("Usuario Creado"), 200
 
-
-# @app.route('/login', methods=["POST"])
-# def login():
-#     email = request.json.get("email")
-#     password = request.json.get("password")
-#     user_name = User.query.filter_by(email=email).first()
-#     if user_name is None:
-#         return jsonify (
-#             "usuario no existe"
-#         ),401
-
-#     user = User.query.filter_by(email=email, password = password).first()
-#     if user is None:
-#         return jsonify(
-#             "contraseña incorrecta"
-#         ),401
-
-#     # Campos vacios
-#     if email == "":
-#         return jsonify(
-#             "Debe ingresar email."
-#         ),401
-
-#     if password == "":
-#         return jsonify(
-#             "Debe ingresar contraseña."
-#         ),401
-  
-#     # usuario registrado
-#     if email == email and password == password:
-#         return jsonify({
-#             "user":user.serialize(),
-#         }),200
- 
-#     # email y contraseña no corresponde 
-#     if email != email:
-#         return jsonify(
-#             "Haz ingresado mal tu email"
-#         ),401
+    return jsonify({
+        "msg":"Usuario Creado con Exito"
+    }), 200
         
-#     if password != password:
-#         return jsonify(
-#             "Haz ingresado mal tu contraseña"
-#         ),401
-
+# LOGIN 
 @app.route('/login', methods=["POST"])
 def login():
     email = request.json.get("email", None)
@@ -146,7 +125,7 @@ def login():
     elif bcrypt.check_password_hash(user.password, password):
         access_token = create_access_token(identity=user.password)
         return jsonify({
-            "msg":"user login 200",
+            "msg":"Bienvenido a tu perfil",
             "access_token": access_token,
             "user":user.serialize(),
         }),200
@@ -155,15 +134,82 @@ def login():
             "msg":"credenciales erroneas"
         }),400
 
-   
-   
-    # print(user.name)    
-    # return user.name
+# RUTA PRIVADA EDITAR PERFIL/DATOS DE USUARIO
+@app.route('/edituser/<int:id>', methods=["PUT"])
+@jwt_required()
+def get_user_id(id):
+    if request.method == "PUT":
+        if id is not None:
+            profile = User.query.filter_by(id=id).first()
+            if profile is None:
+                return jsonify({
+                    "msg":"Usuario no existe"
+                }), 400
+               
+            user = User.query.filter_by(id=profile.id).first()
+               
+            password_regex = '^.*(?=.{4,})(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).*$'
+            phone_regex = '^(56)?(\s?)(0?9)(\s?)[9876543]\d{7}$'
+            email_regex = '^\w+([\.-]?\w+)@\w+([\.-]?\w+)(\.\w{2,3})+$'
+            
+            #verificacion contraseña
+            if (re.search(password_regex,request.json.get('password'))):
+                    pw_hash = bcrypt.generate_password_hash(request.json.get("password"))
+                    user.password = pw_hash
+            else:
+                return jsonify({
+                    "msg":"Formato de contraseña errónea"
+                }), 400
+            
+            #verificacion telefono
+            if (re.search(phone_regex,str(request.json.get('phone')))):
+                user.phone = request.json.get("phone")
+            else:
+                return jsonify({
+                    "msg":"Formato de teléfono erróneo"
+                }), 400
+            
+            #verificacion email
+            if (re.search(email_regex,request.json.get("email"))):
+                user.email = request.json.get("email")
+            else:
+                return jsonify({
+                    "msg":"Formato de email erróneo"
+                }), 400
 
- 
+            user.name = request.json.get("name")
+            user.phone = request.json.get("phone")
+
+            if user.name == "":
+                return jsonify({
+                    "msg":"Debe ingresar un nombre valido"
+                }), 400
+
+
+        db.session.add(user)
+        db.session.commit()
+
+    return jsonify({
+        "msg":"Datos actualizados"
+    }), 200
+
+# RUTA PRIVADA PARA EL PROFILE
+@app.route('/private', methods=["POST"])
+@jwt_required()
+def private():
+    current_user = get_jwt_identity()
+    current_user_token_expires = get_jwt()["exp"]
+    
+    return jsonify({
+        "current_user": current_user,
+        "current_user_token_expires": datetime.fromtimestamp(current_user_token_expires) 
+    }), 200
+
+
+#RUTA AVAILABILITY DEL CALENDARIO
 @app.route('/availability', methods=["POST", "GET"])
 def availability():
-    user = request.json.get("user")
+    event_id = request.json.get("event_id")
     date = request.json.get("date")
 
     availability_date = Availability.query.filter_by(date=date).first()
@@ -172,46 +218,18 @@ def availability():
 
     if availability_date is None:
         return jsonify({
-            "msg":"fecha esta disponible"
+            "msg":"fecha disponible"
         }),200
     else:
         return jsonify({
-            "msg":"fecha no dispinible"
-        }), 400
-
-
-
-
-
-
-@app.route('/edituser/<int:id>', methods=["PUT"])
-def edituser():
-    if request.method =="PUT":
-        email = request.json.get("email")
-        name = request.json.get("name")
-        password = request.json.get("password")
-        phone = request.json.get("phone")
-
-    user = User.query.filter_by(id=id).first()
+            "msg":"fecha NO disponible"
+        }),400
+ 
+  
+  
 
     
 
 
-
-
-
-
-
-
-
 if __name__ == "__main__":
     app.run(host='localhost', port=8080)
-
-
-    # # elif bcrypt.check_password_hash(user.password, password):
-    #     access_token = create_access_token(Identity=user.email)
-    #     return jsonify({
-    #         "msg":"user login 200",
-    #         "access_token":access_token,
-    #         "user": user.serialize(),
-    #     }),200

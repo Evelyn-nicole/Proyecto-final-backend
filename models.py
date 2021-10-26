@@ -32,8 +32,9 @@ class User(db.Model):
 class Availability(db.Model):
     __tablename__ = 'availability'
     id = db.Column(db.Integer, primary_key=True)
-    user = db.Column(db.String(30), db.ForeignKey("user.name", ondelete='CASCADE'), primary_key=True)
     date = db.Column(db.Integer, nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"))
+    # user = db.Column(db.String(30), db.ForeignKey("user.name", ondelete='CASCADE'), primary_key=True)
     # id_user = db.Column(db.String(30), db.ForeignKey("user.name", ondelete='CASCADE'), nullable=False)
 
     def __repr__(self):
@@ -83,7 +84,8 @@ class Event(db.Model):
     thematic = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
     frecuent_question = db.Column(db.String(300), nullable=False)
-    # availability = db.relationship('Availability', backref='event', cascade='all, delete', lazy=True)
+    availability = db.relationship('Availability', backref='event', cascade='all, delete', lazy=True)
+    
     # reservation = db.relationship('Reservation', backref='event', cascade='all, delete', lazy=True)
     # user = db.relationship('User', backref='event', cascade='all, delete', lazy=True)
 
