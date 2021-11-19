@@ -251,7 +251,7 @@ def availability():
 
 
 @app.route('/admin_new_event', methods=["POST", "GET"])
-#@jwt_required()
+#jwt_required()
 def admin_new_event():
     if request.method == "GET":
         event = Event.query.all()
@@ -449,7 +449,7 @@ def admin_login():
         }), 400
         
 @app.route('/admin_edit_user/<int:id>', methods=["PUT"])
-#@jwt_required()
+@jwt_required()
 def get_admin_id(id):
     if request.method == "PUT":
         if id is not None:
